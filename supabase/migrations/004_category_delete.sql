@@ -1,0 +1,2 @@
+-- Category deletion is safe because products.category_id uses ON DELETE SET NULL.
+-- This migration is intentionally empty; it documents the supported delete behavior.
