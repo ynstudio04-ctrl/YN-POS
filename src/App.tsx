@@ -55,7 +55,7 @@ const translations: Record<Language, Record<string,string>> = {
     'Scanner':'ម៉ាស៊ីនស្កេន','Sound':'សំឡេង','Vibration':'រំញ័រ','Quality':'គុណភាព','Fast':'លឿន',
     'Balanced':'មានតុល្យភាព','Tax':'ពន្ធ','Enable tax':'បើកពន្ធ','Tax percentage':'ភាគរយពន្ធ',
     'Save settings':'រក្សាទុកការកំណត់','Day':'ថ្ងៃ','Night':'យប់','English':'អង់គ្លេស','Khmer':'ខ្មែរ',
-    'Subtotal':'សរុបរង','Discount':'បញ្ចុះតម្លៃ',
+    'Subtotal':'សរុប','Discount':'បញ្ចុះតម្លៃ',
     'Total':'សរុប','Cash received':'ប្រាក់ទទួល','cash':'សាច់ប្រាក់','card':'កាត','qr':'QR',
     'Charge':'ទូទាត់','Paid by':'ទូទាត់តាម','Print receipt':'បោះពុម្ពវិក្កយបត្រ','Reports':'របាយការណ៍','Sales reports':'របាយការណ៍ការលក់','Today':'ថ្ងៃនេះ','This week':'សប្តាហ៍នេះ','This month':'ខែនេះ','Total sales':'ការលក់សរុប','Transactions':'ប្រតិបត្តិការ','Average sale':'ការលក់មធ្យម','Cash':'សាច់ប្រាក់','QR':'QR','Upload QR code':'បញ្ចូល QR','Your payment QR code':'QR ទូទាត់របស់អ្នក','No QR code uploaded':'មិនទាន់មាន QR','Show QR':'បង្ហាញ QR','Close':'បិទ','Payment QR':'QR ទូទាត់',
     Home:'ទំព័រដើម', More:'បន្ថែម', Management:'ការគ្រប់គ្រង', 'Everything you need to run the store.':'អ្វីៗដែលអ្នកត្រូវការសម្រាប់ដំណើរការហាង។', Categories:'ប្រភេទ', Inventory:'ស្តុក', Customers:'អតិថិជន', Suppliers:'អ្នកផ្គត់ផ្គង់', Employees:'បុគ្គលិក', 'Cash drawer':'ថតសាច់ប្រាក់', 'Manage catalog':'គ្រប់គ្រងបញ្ជីផលិតផល', 'Organize products':'រៀបចំផលិតផល', 'Stock and adjustments':'ស្តុក និងការកែតម្រូវ', 'Profiles and loyalty':'ប្រវត្តិ និងភាពស្មោះត្រង់', 'Purchasing partners':'ដៃគូផ្គត់ផ្គង់', 'Roles and permissions':'តួនាទី និងសិទ្ធិ', 'Open/close register':'បើក/បិទបញ្ជីសាច់ប្រាក់', 'Sales and profit':'ការលក់ និងប្រាក់ចំណេញ', 'Store and POS setup':'ការកំណត់ហាង និង POS'
