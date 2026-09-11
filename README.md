@@ -63,3 +63,8 @@ Xcode, an Apple Developer account for device/TestFlight signing, CocoaPods if re
 When both variables are present, the app uses Supabase automatically and the status changes from `DEMO MODE` to `ONLINE`. Without them, it keeps using localStorage demo data.
 
 **Important:** the included RLS policies intentionally allow the anon browser key to read/write POS data because this version has no login. For a real multi-user/production POS, add Supabase Auth and replace the public policies with authenticated/user-scoped policies.
+
+## YN POS V2
+This version adds the management-oriented UX shown in the YN POS concept: Dashboard, POS, Scanner, Products, Categories, Inventory, Customers, Suppliers, Employees, Cash Drawer, Reports, Receipts, and Settings. The mobile navigation prioritizes Home, Sale, Scan, Receipts, and More.
+
+Product images can be taken with the phone camera or selected from the device. Images are resized and background-removal is attempted in-browser; the processed image is uploaded only after the product has a database ID.

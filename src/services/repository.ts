@@ -41,7 +41,6 @@ function mapProduct(x: any): Product {
     id: x.id,
     name: x.name,
     barcode: x.barcode || undefined,
-    sku: x.sku || undefined,
     category:
       x.category_name ??
       x.category ??
@@ -60,7 +59,6 @@ function toProductRow(p: Product) {
     id: p.id,
     name: p.name.trim(),
     barcode: p.barcode?.trim() || null,
-    sku: p.sku?.trim() || null,
     price: Number(p.price) || 0,
     stock_quantity: Number(p.stock) || 0,
     image_url: p.imageUrl || null,
@@ -94,7 +92,6 @@ function mapSale(x: any): Sale {
       quantity: Number(i.quantity),
       stock: 0,
       barcode: undefined,
-      sku: undefined,
       category: undefined,
     })),
   };
@@ -136,7 +133,6 @@ export class DemoRepository implements Repository {
       [
         p.name,
         p.barcode,
-        p.sku,
         p.category,
       ].some(
         value =>
