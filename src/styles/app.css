@@ -202,3 +202,40 @@ main{width:100%;min-width:0}
 @media (min-width: 1100px) {
   .bottom-nav { width: min(760px, 70vw); }
 }
+
+/* Final More-page icon centering / anti-clipping fix */
+.management-card { overflow: visible; }
+.management-icon {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  min-height: 58px;
+  flex: 0 0 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  line-height: 0;
+}
+.management-icon svg {
+  display: block;
+  width: 29px !important;
+  height: 29px !important;
+  min-width: 29px;
+  min-height: 29px;
+  flex: none;
+  margin: 0;
+  overflow: visible;
+  stroke-width: 2;
+}
+.management-title { width: 100%; text-align: center; }
+.management-title b { display: block; text-align: center; }
+.management-arrow { z-index: 2; }
+
+@media (max-width: 520px) {
+  .management-card { min-height: 128px; padding: 15px 10px; }
+  .management-icon { width: 54px; height: 54px; min-width:54px; min-height:54px; flex-basis:54px; }
+  .management-icon svg { width:27px !important; height:27px !important; min-width:27px; min-height:27px; }
+  .management-title b { font-size: 13px; }
+}
