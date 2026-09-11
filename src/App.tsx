@@ -84,7 +84,7 @@ const translations: Record<Language, Record<string,string>> = {
     'Update inventory':'ធ្វើបច្ចុប្បន្នភាពស្តុក',
     'View Sales':'មើលការលក់',
     'View inventory':'មើលស្តុក',
-    'remaining':'នៅសល់',,
+    'remaining':'នៅសល់',
     'YN POS':"YN POS", 'Stock control':"Stock control", 'Monitor stock levels and identify items that need attention.':"Monitor stock levels and identify items that need attention.", 'Total units':"Total units", 'Out of stock':"Out of stock", 'Stock value':"Stock value", 'Uncategorized':"Uncategorized", 'No barcode':"No barcode", 'New category':"New category", 'Add':"Add", 'Saved locally on this device':"Saved locally on this device", 'No entries yet':"No entries yet", 'Add your first one above.':"Add your first one above.",
     
   }
