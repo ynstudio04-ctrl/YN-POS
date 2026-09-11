@@ -239,3 +239,48 @@ main{width:100%;min-width:0}
   .management-icon svg { width:27px !important; height:27px !important; min-width:27px; min-height:27px; }
   .management-title b { font-size: 13px; }
 }
+
+/* Final fix: center the SYMBOL itself inside the purple More-page box */
+.management-icon {
+  position: relative !important;
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: visible !important;
+  line-height: 0 !important;
+  box-sizing: border-box !important;
+}
+.management-icon-inner {
+  width: 100% !important;
+  height: 100% !important;
+  display: grid !important;
+  place-items: center !important;
+  line-height: 0 !important;
+  overflow: visible !important;
+}
+.management-icon-inner svg {
+  position: static !important;
+  display: block !important;
+  width: 24px !important;
+  height: 24px !important;
+  margin: 0 !important;
+  transform: none !important;
+  flex: none !important;
+  overflow: visible !important;
+}
+@media (max-width: 520px) {
+  .management-icon {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    min-height: 52px !important;
+  }
+  .management-icon-inner svg {
+    width: 23px !important;
+    height: 23px !important;
+  }
+}
