@@ -100,7 +100,7 @@ function PreferencesProvider({children}:{children:ReactNode}){
   const [theme,setTheme]=useState<AppTheme>(()=>(localStorage.getItem('yn-theme') as AppTheme)||'dark');
   useEffect(()=>{localStorage.setItem('yn-lang',lang)},[lang]);
   useEffect(()=>{localStorage.setItem('yn-theme',theme)},[theme]);
-  const {t} =(x:string)=>translations[lang][x]||x;
+  const t=(x:string)=>translations[lang][x]||x;
   return <PreferencesContext.Provider value={{lang,setLang,theme,setTheme,t}}>{children}</PreferencesContext.Provider>;
 }
 
