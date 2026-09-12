@@ -284,3 +284,12 @@ main{width:100%;min-width:0}
     height: 23px !important;
   }
 }
+
+.form-card{background:var(--panel,#111);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:18px;margin:16px 0;box-shadow:0 18px 60px rgba(0,0,0,.2)}
+.form-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.form-card-head div{display:grid;gap:3px}.form-card-head small{opacity:.65}
+.row.end{justify-content:flex-end}.small-btn{padding:9px 12px!important;display:flex;align-items:center;gap:6px}
+.stock-readonly{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:rgba(255,255,255,.035);margin:8px 0 16px}.stock-readonly span{display:grid;gap:3px}.stock-readonly small{opacity:.6}.stock-readonly strong{font-size:20px}
+.modal-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.58);backdrop-filter:blur(7px);display:grid;place-items:center;padding:20px}.stock-modal{width:min(480px,100%);margin:0}
+.stock-preview{display:flex;justify-content:space-between;padding:13px 14px;margin:10px 0 14px;border-radius:12px;background:rgba(255,255,255,.05)}
+.image-processing{position:fixed;inset:0;z-index:1100;background:rgba(5,7,12,.72);backdrop-filter:blur(10px);display:grid;place-items:center;align-content:center;gap:10px;color:white;text-align:center}.image-processing b{font-size:18px}.image-processing small{opacity:.7}
+.processing-orbit{width:72px;height:72px;position:relative;margin-bottom:6px}.processing-orbit:before{content:"";position:absolute;inset:8px;border:2px solid rgba(255,255,255,.14);border-top-color:currentColor;border-radius:50%;animation:ynSpin 1s linear infinite}.processing-orbit span{position:absolute;width:7px;height:7px;border-radius:50%;background:currentColor;left:50%;top:0;transform-origin:0 36px;animation:ynPulse 1.2s ease-in-out infinite}.processing-orbit span:nth-child(2){transform:rotate(120deg);animation-delay:.2s}.processing-orbit span:nth-child(3){transform:rotate(240deg);animation-delay:.4s}@keyframes ynSpin{to{transform:rotate(360deg)}}@keyframes ynPulse{0%,100%{opacity:.25;transform:rotate(var(--r,0deg)) scale(.7)}50%{opacity:1;transform:rotate(var(--r,0deg)) scale(1.25)}}

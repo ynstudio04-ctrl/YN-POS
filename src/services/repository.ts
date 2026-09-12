@@ -21,6 +21,16 @@ export interface Repository {
   getCategories(): Promise<string[]>;
   createCategory(name: string): Promise<string>;
   deleteCategory(name: string): Promise<void>;
+  getCustomers(): Promise<any[]>;
+  createCustomer(input: any): Promise<any>;
+  deleteCustomer(id: string): Promise<void>;
+  getSuppliers(): Promise<any[]>;
+  createSupplier(input: any): Promise<any>;
+  deleteSupplier(id: string): Promise<void>;
+  getEmployees(): Promise<any[]>;
+  createEmployee(input: any): Promise<any>;
+  deleteEmployee(id: string): Promise<void>;
+  updateStock(productId: string, quantity: number, reason: string): Promise<Product>;
   getSales(): Promise<Sale[]>;
   getSale(id: string): Promise<Sale | null>;
   createSale(s: Sale): Promise<Sale>;
@@ -201,6 +211,23 @@ export class DemoRepository implements Repository {
   async getCategories(): Promise<string[]> { return JSON.parse(localStorage.getItem('yn-categories') || '[]'); }
   async createCategory(name: string): Promise<string> { const n=name.trim(); if(!n) throw new Error('Category name is required'); const all=await this.getCategories(); if(!all.includes(n)){all.push(n); localStorage.setItem('yn-categories',JSON.stringify(all));} return n; }
   async deleteCategory(name: string): Promise<void> { const n=name.trim(); const all=await this.getCategories(); localStorage.setItem('yn-categories', JSON.stringify(all.filter(c => c !== n))); }
+
+  private localList(key: string): any[] { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
+  private localCreate(key: string, input: any) { const item={id:makeId(),...input,created_at:new Date().toISOString()}; const all=[item,...this.localList(key)]; localStorage.setItem(key,JSON.stringify(all)); return item; }
+  async getCustomers(){return this.localList('yn-customers');}
+  async createCustomer(input:any){return this.localCreate('yn-customers',input);}
+  async deleteCustomer(id:string){localStorage.setItem('yn-customers',JSON.stringify(this.localList('yn-customers').filter(x=>x.id!==id)));}
+  async getSuppliers(){return this.localList('yn-suppliers');}
+  async createSupplier(input:any){return this.localCreate('yn-suppliers',input);}
+  async deleteSupplier(id:string){localStorage.setItem('yn-suppliers',JSON.stringify(this.localList('yn-suppliers').filter(x=>x.id!==id)));}
+  async getEmployees(){return this.localList('yn-employees');}
+  async createEmployee(input:any){return this.localCreate('yn-employees',input);}
+  async deleteEmployee(id:string){localStorage.setItem('yn-employees',JSON.stringify(this.localList('yn-employees').filter(x=>x.id!==id)));}
+  async updateStock(productId:string, quantity:number, reason:string){
+    const products=loadProducts(); const p=products.find((x: Product)=>x.id===productId); if(!p) throw new Error('Product not found');
+    const next=Number(p.stock)+Number(quantity); if(next<0) throw new Error('Stock cannot go below zero');
+    p.stock=next; saveProducts(products); return p;
+  }
 
   async getSales(): Promise<Sale[]> {
     return loadSales();
@@ -450,6 +477,21 @@ export class SupabaseRepository
   async getCategories(): Promise<string[]> { const {data,error}=await this.db.from('categories').select('name').order('name'); if(error) throw error; return (data||[]).map((x:any)=>x.name); }
   async createCategory(name: string): Promise<string> { const n=name.trim(); if(!n) throw new Error('Category name is required'); const {error}=await this.db.from('categories').upsert({name:n},{onConflict:'name'}); if(error) throw error; return n; }
   async deleteCategory(name: string): Promise<void> { const n=name.trim(); if(!n) throw new Error('Category name is required'); const {error}=await this.db.from('categories').delete().eq('name', n); if(error) throw error; }
+
+  async getCustomers(){ const {data,error}=await this.db.from('customers').select('*').order('created_at',{ascending:false}); if(error) throw error; return data||[]; }
+  async createCustomer(input:any){ const {data,error}=await this.db.from('customers').insert(input).select('*').single(); if(error) throw error; return data; }
+  async deleteCustomer(id:string){ const {error}=await this.db.from('customers').delete().eq('id',id); if(error) throw error; }
+  async getSuppliers(){ const {data,error}=await this.db.from('suppliers').select('*').order('created_at',{ascending:false}); if(error) throw error; return data||[]; }
+  async createSupplier(input:any){ const {data,error}=await this.db.from('suppliers').insert(input).select('*').single(); if(error) throw error; return data; }
+  async deleteSupplier(id:string){ const {error}=await this.db.from('suppliers').delete().eq('id',id); if(error) throw error; }
+  async getEmployees(){ const {data,error}=await this.db.from('employees').select('*').order('created_at',{ascending:false}); if(error) throw error; return data||[]; }
+  async createEmployee(input:any){ const {data,error}=await this.db.from('employees').insert(input).select('*').single(); if(error) throw error; return data; }
+  async deleteEmployee(id:string){ const {error}=await this.db.from('employees').delete().eq('id',id); if(error) throw error; }
+  async updateStock(productId:string, quantity:number, reason:string){
+    const amount=Number(quantity); if(!Number.isFinite(amount)||amount===0) throw new Error('Enter a stock quantity.');
+    const {data,error}=await this.db.rpc('adjust_stock',{p_product_id:productId,p_quantity:amount,p_reason:reason||'Manual stock adjustment'});
+    if(error) throw error; return mapProduct(data);
+  }
 
   async getSales(): Promise<Sale[]> {
     const { data, error } =
