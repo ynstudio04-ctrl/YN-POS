@@ -59,30 +59,6 @@ const translations: Record<Language, Record<string,string>> = {
     'Total':'សរុប','Cash received':'ប្រាក់ទទួល','cash':'សាច់ប្រាក់','card':'កាត','qr':'QR',
     'Charge':'ទូទាត់','Paid by':'ទូទាត់តាម','Print receipt':'បោះពុម្ពវិក្កយបត្រ','Reports':'របាយការណ៍','Sales reports':'របាយការណ៍ការលក់','Today':'ថ្ងៃនេះ','This week':'សប្តាហ៍នេះ','This month':'ខែនេះ','Total sales':'ការលក់សរុប','Transactions':'ប្រតិបត្តិការ','Average sale':'ការលក់មធ្យម','Cash':'សាច់ប្រាក់','QR':'QR','Upload QR code':'បញ្ចូល QR','Your payment QR code':'QR ទូទាត់របស់អ្នក','No QR code uploaded':'មិនទាន់មាន QR','Show QR':'បង្ហាញ QR','Close':'បិទ','Payment QR':'QR ទូទាត់',
     Home:'ទំព័រដើម', More:'បន្ថែម', Management:'ការគ្រប់គ្រង', 'Everything you need to run the store.':'អ្វីៗដែលអ្នកត្រូវការសម្រាប់ដំណើរការហាង។', Categories:'ប្រភេទ', Inventory:'ស្តុក', Customers:'អតិថិជន', Suppliers:'អ្នកផ្គត់ផ្គង់', Employees:'បុគ្គលិក', 'Cash drawer':'ថតសាច់ប្រាក់', 'Manage catalog':'គ្រប់គ្រងបញ្ជីផលិតផល', 'Organize products':'រៀបចំផលិតផល', 'Stock and adjustments':'ស្តុក និងការកែតម្រូវ', 'Profiles and loyalty':'ប្រវត្តិ និងភាពស្មោះត្រង់', 'Purchasing partners':'ដៃគូផ្គត់ផ្គង់', 'Roles and permissions':'តួនាទី និងសិទ្ធិ', 'Open/close register':'បើក/បិទបញ្ជីសាច់ប្រាក់', 'Sales and profit':'ការលក់ និងប្រាក់ចំណេញ', 'Store and POS setup':'ការកំណត់ហាង និង POS'
-  ,
-    'Add Product':'បន្ថែមផលិតផល',
-    'All good':'គ្រប់យ៉ាងល្អ',
-    'Create catalog item':'បង្កើតផលិតផលក្នុងបញ្ជី',
-    'DEMO MODE':'របៀបសាកល្បង',
-    'Fast checkout':'ការទូទាត់រហ័ស',
-    'Good evening, Owner':'សួស្តីពេលល្ងាច ម្ចាស់ហាង',
-    'Here’s what’s happening today.':'នេះជាស្ថានភាពហាងរបស់អ្នកនៅថ្ងៃនេះ។',
-    'Low stock':'ស្តុកជិតអស់',
-    'Low-stock alerts':'ការជូនដំណឹងស្តុកជិតអស់',
-    'Needs attention':'ត្រូវការយកចិត្តទុកដាក់',
-    'No low-stock products':'មិនមានផលិតផលដែលស្តុកជិតអស់ទេ',
-    'No sales yet':'មិនទាន់មានការលក់ទេ',
-    'ONLINE':'អនឡាញ',
-    'Open transactions':'បើកប្រតិបត្តិការ',
-    'Products sold':'ផលិតផលដែលបានលក់',
-    'Quick actions':'សកម្មភាពរហ័ស',
-    'Receive Stock':'ទទួលស្តុក',
-    'Scan & Sell':'ស្កេន និងលក់',
-    'Units today':'ចំនួនទំនិញថ្ងៃនេះ',
-    'Update inventory':'ធ្វើបច្ចុប្បន្នភាពស្តុក',
-    'View Sales':'មើលការលក់',
-    'View inventory':'មើលស្តុក',
-    'remaining':'នៅសល់',
     'YN POS':"YN POS", 'Stock control':"Stock control", 'Monitor stock levels and identify items that need attention.':"Monitor stock levels and identify items that need attention.", 'Total units':"Total units", 'Out of stock':"Out of stock", 'Stock value':"Stock value", 'Uncategorized':"Uncategorized", 'No barcode':"No barcode", 'New category':"New category", 'Add':"Add", 'Saved locally on this device':"Saved locally on this device", 'No entries yet':"No entries yet", 'Add your first one above.':"Add your first one above.",
     
   }
@@ -147,8 +123,7 @@ function PeoplePage({kind}:{kind:'customers'|'suppliers'|'employees'}){
  const {t}=usePrefs(); const Icon=kind==='customers'?Users:kind==='suppliers'?Truck:UserCog;
  const title=kind==='customers'?'Customers':kind==='suppliers'?'Suppliers':'Workers'; const eyebrow=kind==='customers'?'CRM':kind==='suppliers'?'Purchasing':'Team';
  const [items,setItems]=useState<PersonRecord[]>([]); const [open,setOpen]=useState(false); const [saving,setSaving]=useState(false); const [q,setQ]=useState(''); const [form,setForm]=useState({name:'',phone:'',email:'',address:'',notes:''});
- const load=()=>{const request=kind==='customers'?repository.getCustomers():kind==='suppliers'?repository.getSuppliers():repository.getEmployees();request.then(setItems).catch(e=>alert(e instanceof Error?e.message:'Could not load data'))}; useEffect(load,[]); const save=async()=>{if(!form.name.trim())return;try{setSaving(true);if(kind==='customers'){await repository.createCustomer(form)}else if(kind==='suppliers'){await repository.createSupplier(form)}else{await repository.createEmployee(form)}setForm({name:'',phone:'',email:'',address:'',notes:''});setOpen(false);await load()}catch(e){alert(e instanceof Error?e.message:'Could not save')}finally{setSaving(false)}};
- const save=async()=>{if(!form.name.trim())return;try{setSaving(true);const fn=kind==='customers'?repository.createCustomer:kind==='suppliers'?repository.createSupplier:repository.createEmployee;await fn(form);setForm({name:'',phone:'',email:'',address:'',notes:''});setOpen(false);load()}catch(e){alert(e instanceof Error?e.message:'Could not save')}finally{setSaving(false)}};
+ const load=async()=>{try{const data=kind==='customers'?await repository.getCustomers():kind==='suppliers'?await repository.getSuppliers():await repository.getEmployees();setItems(data)}catch(e){alert(e instanceof Error?e.message:'Could not load data')}}; useEffect(()=>{void load()},[]); const save=async()=>{if(!form.name.trim())return;try{setSaving(true);if(kind==='customers'){await repository.createCustomer(form)}else if(kind==='suppliers'){await repository.createSupplier(form)}else{await repository.createEmployee(form)}setForm({name:'',phone:'',email:'',address:'',notes:''});setOpen(false);await load()}catch(e){alert(e instanceof Error?e.message:'Could not save')}finally{setSaving(false)}};
  const filtered=items.filter(x=>[x.name,x.phone,x.email].some(v=>v?.toLowerCase().includes(q.toLowerCase())));
  return <div className="page"><header><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="muted">Manage {title.toLowerCase()} directly in your POS.</p></div><button className="primary add-person-btn" onClick={()=>setOpen(true)}><Plus/> Add {kind==='employees'?'worker':kind.slice(0,-1)}</button></header><section className="searchbar"><Search size={20}/><input placeholder={`Search ${title.toLowerCase()}...`} value={q} onChange={e=>setQ(e.target.value)}/></section><div className="table">{filtered.map(x=><div className="row-card" key={x.id}><div className="receipt-icon"><Icon/></div><div className="grow"><b>{x.name}</b><small>{x.phone||x.email||'No contact details'}{x.address?' · '+x.address:''}</small></div><span className="person-date">{new Date(x.createdAt).toLocaleDateString()}</span></div>)}{!filtered.length&&<div className="empty compact"><Icon/><b>No {title.toLowerCase()} yet</b><span>Click Add to create your first one.</span></div>}</div>{open&&<div className="modal-backdrop" onMouseDown={()=>!saving&&setOpen(false)}><div className="person-modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">{eyebrow}</p><h2>Add {kind==='employees'?'worker':kind.slice(0,-1)}</h2></div><button className="icon-btn" onClick={()=>setOpen(false)}><X/></button></div><div className="form person-form"><label>Name<input autoFocus value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Full name"/></label><div className="two"><label>Phone<input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="Phone number"/></label><label>Email<input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email"/></label></div><label>Address<input value={form.address} onChange={e=>setForm({...form,address:e.target.value})} placeholder="Address"/></label><label>Notes<textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Optional notes"/></label><button className="primary full save-person" disabled={saving||!form.name.trim()} onClick={save}><Save/>{saving?'Saving…':'Save'}</button></div></div></div>}</div>
 }
