@@ -4,6 +4,24 @@ export type DeviceRole='pos'|'scanner';
 export type RegisterMessage={type:'barcode';barcode:string;sourceId:string;sentAt:number};
 export type RegisterStatus='CONNECTING'|'SUBSCRIBED'|'CLOSED'|'CHANNEL_ERROR'|'TIMED_OUT'|'NO_SUPABASE'|'AUTH_ERROR';
 
+export type RealtimeDiagnostics = {
+  topic?: string;
+  userId?: string;
+  authenticated: boolean;
+  setAuth: boolean;
+  authError?: string;
+};
+
+let lastDiagnostics: RealtimeDiagnostics = { authenticated: false, setAuth: false };
+export const getRealtimeDiagnostics = () => ({ ...lastDiagnostics });
+
+const formatRealtimeError = (error: unknown) => {
+  if (!error) return '';
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try { return JSON.stringify(error); } catch { return String(error); }
+};
+
 const ROLE_KEY='yn-device-role';
 const REGISTER_KEY='yn-register-code';
 const DEVICE_KEY='yn-device-id';
@@ -33,10 +51,16 @@ function getChannel(code:string){return channels.get(code.toUpperCase())}
 
 async function ensureRealtimeAuth(){
   const client=supabase;
-  if(!client) throw new Error('Supabase is not configured.');
+  if(!client) {
+    lastDiagnostics={authenticated:false,setAuth:false,authError:'Supabase is not configured.'};
+    throw new Error('Supabase is not configured.');
+  }
 
   const {data:{session},error}=await client.auth.getSession();
-  if(error) throw error;
+  if(error) {
+    lastDiagnostics={authenticated:false,setAuth:false,authError:error.message};
+    throw error;
+  }
 
   let activeSession=session;
 
@@ -45,18 +69,28 @@ async function ensureRealtimeAuth(){
   // authorize the device without adding a login screen to the POS.
   if(!activeSession?.user){
     const result=await client.auth.signInAnonymously();
-    if(result.error) throw new Error(`Realtime authentication failed: ${result.error.message}`);
+    if(result.error) {
+      lastDiagnostics={authenticated:false,setAuth:false,authError:result.error.message};
+      throw new Error(`Realtime authentication failed: ${result.error.message}`);
+    }
     activeSession=result.data.session;
   }
 
   if(!activeSession?.access_token){
+    lastDiagnostics={authenticated:false,setAuth:false,authError:'No authenticated Supabase session.'};
     throw new Error('The POS device is not authenticated.');
   }
 
   // Private Realtime channels authorize the websocket with the current
   // Supabase JWT. Set it immediately before creating/subscribing to channels.
-  await client.realtime.setAuth(activeSession.access_token);
+  try {
+    await client.realtime.setAuth(activeSession.access_token);
+  } catch(error) {
+    lastDiagnostics={authenticated:true,setAuth:false,userId:activeSession.user.id,authError:formatRealtimeError(error)};
+    throw error;
+  }
 
+  lastDiagnostics={authenticated:true,setAuth:true,userId:activeSession.user.id};
   return activeSession;
 }
 
@@ -82,7 +116,9 @@ export function subscribeToRegister(code:string,onMessage:(m:RegisterMessage)=>v
         return;
       }
 
-      const c=client.channel(channelName(normalized),{config:{
+      const topic=channelName(normalized);
+      lastDiagnostics={...lastDiagnostics,topic};
+      const c=client.channel(topic,{config:{
         private:true,
         broadcast:{self:false,ack:true}
       }});
@@ -92,8 +128,10 @@ export function subscribeToRegister(code:string,onMessage:(m:RegisterMessage)=>v
         const m=payload as RegisterMessage;
         if(m?.type==='barcode'&&m.sourceId!==deviceId())onMessage(m);
       });
-      c.subscribe(status=>{
-        onStatus?.(status as RegisterStatus);
+      c.subscribe((status,error)=>{
+        const detail=formatRealtimeError(error);
+        if(detail) lastDiagnostics={...lastDiagnostics,topic,authError:detail};
+        onStatus?.(status as RegisterStatus,detail);
         if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')channels.delete(normalized);
       });
     }catch(error){
