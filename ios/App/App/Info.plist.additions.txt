@@ -1,0 +1,2 @@
+Add this key to the generated Capacitor App target Info.plist:
+NSCameraUsageDescription = "YN POS uses the camera to scan retail barcodes."
