@@ -34,16 +34,30 @@ function getChannel(code:string){return channels.get(code.toUpperCase())}
 async function ensureRealtimeAuth(){
   const client=supabase;
   if(!client) throw new Error('Supabase is not configured.');
+
   const {data:{session},error}=await client.auth.getSession();
   if(error) throw error;
-  if(session?.user) return session;
+
+  let activeSession=session;
 
   // YN-POS does not currently require users to create accounts. We use a
   // persistent anonymous Supabase user so private Realtime channels can
   // authorize the device without adding a login screen to the POS.
-  const result=await client.auth.signInAnonymously();
-  if(result.error) throw new Error(`Realtime authentication failed: ${result.error.message}`);
-  return result.data.session;
+  if(!activeSession?.user){
+    const result=await client.auth.signInAnonymously();
+    if(result.error) throw new Error(`Realtime authentication failed: ${result.error.message}`);
+    activeSession=result.data.session;
+  }
+
+  if(!activeSession?.access_token){
+    throw new Error('The POS device is not authenticated.');
+  }
+
+  // Private Realtime channels authorize the websocket with the current
+  // Supabase JWT. Set it immediately before creating/subscribing to channels.
+  await client.realtime.setAuth(activeSession.access_token);
+
+  return activeSession;
 }
 
 export function subscribeToRegister(code:string,onMessage:(m:RegisterMessage)=>void,onStatus?:(status:RegisterStatus,error?:string)=>void){
