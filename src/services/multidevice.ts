@@ -148,18 +148,18 @@ function attachPOSConnection(connection: DataConnection) {
   connection.on('open', () => setStatus('SUBSCRIBED'));
   connection.on('data', (data: unknown) => {
     const message = data as Partial<RegisterMessage>;
-    if (
-      message.type === 'barcode' &&
-      typeof message.barcode === 'string' &&
-      typeof message.sourceId === 'string' &&
-      message.sourceId !== getDeviceId()
-    ) {
+    if (message.type === 'barcode') {
+      const barcode = typeof message.barcode === 'string' ? message.barcode : '';
+      const sourceId = typeof message.sourceId === 'string' ? message.sourceId : '';
+      if (!barcode || !sourceId || sourceId === getDeviceId()) return;
+
+      const sentAt = typeof message.sentAt === 'number' ? message.sentAt : Date.now();
       messageHandlers.forEach((handler) =>
         handler({
           type: 'barcode',
-          barcode: message.barcode,
-          sourceId: message.sourceId,
-          sentAt: typeof message.sentAt === 'number' ? message.sentAt : Date.now(),
+          barcode,
+          sourceId,
+          sentAt,
         }),
       );
     }
