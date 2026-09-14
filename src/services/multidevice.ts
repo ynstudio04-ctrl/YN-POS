@@ -1,203 +1,119 @@
-import {supabase} from './supabase';
-
 export type DeviceRole='pos'|'scanner';
 export type RegisterMessage={type:'barcode';barcode:string;sourceId:string;sentAt:number};
 export type RegisterStatus='CONNECTING'|'SUBSCRIBED'|'CLOSED'|'CHANNEL_ERROR'|'TIMED_OUT'|'NO_SUPABASE'|'AUTH_ERROR';
 
-export type RealtimeDiagnostics = {
-  topic?: string;
-  userId?: string;
-  authenticated: boolean;
-  setAuth: boolean;
-  authError?: string;
-};
+export type RealtimeDiagnostics={topic?:string;userId?:string;authenticated:boolean;setAuth:boolean;authError?:string};
 
-let lastDiagnostics: RealtimeDiagnostics = { authenticated: false, setAuth: false };
-export const getRealtimeDiagnostics = () => ({ ...lastDiagnostics });
-
-const formatRealtimeError = (error: unknown) => {
-  if (!error) return '';
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  try { return JSON.stringify(error); } catch { return String(error); }
-};
-
+// Multi-device pairing intentionally uses WebRTC/PeerJS instead of Supabase Realtime.
+// Supabase remains responsible for POS data; barcode traffic goes peer-to-peer.
 const ROLE_KEY='yn-device-role';
 const REGISTER_KEY='yn-register-code';
+const PEER_KEY='yn-peer-id';
 const DEVICE_KEY='yn-device-id';
 
-type RegisterChannel = ReturnType<NonNullable<typeof supabase>['channel']>;
-const channels = new Map<string, RegisterChannel>();
+type PeerLike={id:string;on:(event:string,cb:(...args:any[])=>void)=>void;connect:(id:string,opts?:any)=>any;destroy:()=>void};
+type DataConn={open:boolean;send:(data:any)=>void;close:()=>void;on:(event:string,cb:(...args:any[])=>void)=>void};
+let peer:PeerLike|null=null;
+let peerLoad:Promise<any>|null=null;
+let activeConnection:DataConn|null=null;
+let activeCode='';
+const messageHandlers=new Set<(m:RegisterMessage)=>void>();
+const statusHandlers=new Set<(s:RegisterStatus,d?:string)=>void>();
 
-const deviceId=()=>{
-  let v=localStorage.getItem(DEVICE_KEY);
-  if(!v){v=crypto.randomUUID();localStorage.setItem(DEVICE_KEY,v)}
-  return v;
-};
-
-const channelName=(c:string)=>`yn-pos-register-${c.toUpperCase()}`;
-const notifyConfigChanged=()=>window.dispatchEvent(new Event('yn-device-config-changed'));
-
-export const getSavedDeviceRole=():DeviceRole|null=>{
-  const v=localStorage.getItem(ROLE_KEY);
-  return v==='pos'||v==='scanner'?v:null;
-};
-export const setDeviceRole=(v:DeviceRole)=>{localStorage.setItem(ROLE_KEY,v);notifyConfigChanged()};
+const notify=()=>window.dispatchEvent(new Event('yn-device-config-changed'));
+const deviceId=()=>{let v=localStorage.getItem(DEVICE_KEY);if(!v){v=crypto.randomUUID();localStorage.setItem(DEVICE_KEY,v)}return v};
+export const getSavedDeviceRole=():DeviceRole|null=>{const v=localStorage.getItem(ROLE_KEY);return v==='pos'||v==='scanner'?v:null};
+export const setDeviceRole=(v:DeviceRole)=>{localStorage.setItem(ROLE_KEY,v);notify()};
 export const getRegisterCode=()=>localStorage.getItem(REGISTER_KEY)||'';
-export const setRegisterCode=(v:string)=>{localStorage.setItem(REGISTER_KEY,v);notifyConfigChanged()};
+export const setRegisterCode=(v:string)=>{localStorage.setItem(REGISTER_KEY,v);notify()};
 export const makePairCode=()=>`YN-${Math.floor(1000+Math.random()*9000)}`;
 
-function getChannel(code:string){return channels.get(code.toUpperCase())}
+export function makePeerId(code:string){return `ynpos-${code.replace(/[^a-z0-9]/gi,'').toLowerCase()}-${deviceId().slice(0,8)}`}
+export function getPeerId(){return localStorage.getItem(PEER_KEY)||''}
 
-async function ensureRealtimeAuth(){
-  const client=supabase;
-  if(!client) {
-    lastDiagnostics={authenticated:false,setAuth:false,authError:'Supabase is not configured.'};
-    throw new Error('Supabase is not configured.');
-  }
-
-  const {data:{session},error}=await client.auth.getSession();
-  if(error) {
-    lastDiagnostics={authenticated:false,setAuth:false,authError:error.message};
-    throw error;
-  }
-
-  let activeSession=session;
-
-  // YN-POS does not currently require users to create accounts. We use a
-  // persistent anonymous Supabase user so private Realtime channels can
-  // authorize the device without adding a login screen to the POS.
-  if(!activeSession?.user){
-    const result=await client.auth.signInAnonymously();
-    if(result.error) {
-      lastDiagnostics={authenticated:false,setAuth:false,authError:result.error.message};
-      throw new Error(`Realtime authentication failed: ${result.error.message}`);
-    }
-    activeSession=result.data.session;
-  }
-
-  if(!activeSession?.access_token){
-    lastDiagnostics={authenticated:false,setAuth:false,authError:'No authenticated Supabase session.'};
-    throw new Error('The POS device is not authenticated.');
-  }
-
-  // Private Realtime channels authorize the websocket with the current
-  // Supabase JWT. Set it immediately before creating/subscribing to channels.
-  try {
-    await client.realtime.setAuth(activeSession.access_token);
-  } catch(error) {
-    lastDiagnostics={authenticated:true,setAuth:false,userId:activeSession.user.id,authError:formatRealtimeError(error)};
-    throw error;
-  }
-
-  lastDiagnostics={authenticated:true,setAuth:true,userId:activeSession.user.id};
-  return activeSession;
+async function loadPeer(){
+  if((window as any).Peer)return (window as any).Peer;
+  if(peerLoad)return peerLoad;
+  peerLoad=new Promise((resolve,reject)=>{
+    const existing=document.querySelector('script[data-yn-peerjs]');
+    if(existing){existing.addEventListener('load',()=>resolve((window as any).Peer));existing.addEventListener('error',()=>reject(new Error('Could not load WebRTC connection service.')));return;}
+    const s=document.createElement('script');s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';s.async=true;s.dataset.ynPeerjs='true';
+    s.onload=()=>{const P=(window as any).Peer;if(P)resolve(P);else reject(new Error('WebRTC library loaded but Peer is unavailable.'))};
+    s.onerror=()=>reject(new Error('Could not load WebRTC connection service.'));
+    document.head.appendChild(s);
+  });
+  return peerLoad;
 }
 
-export function subscribeToRegister(code:string,onMessage:(m:RegisterMessage)=>void,onStatus?:(status:RegisterStatus,error?:string)=>void){
-  const client=supabase;
+function closeConnection(){try{activeConnection?.close()}catch{}activeConnection=null}
+function setStatus(s:RegisterStatus,d?:string){for(const h of statusHandlers)h(s,d)}
+
+export async function startPOSPairing(code:string,onMessage:(m:RegisterMessage)=>void,onStatus?:(s:RegisterStatus,d?:string)=>void){
   const normalized=code.trim().toUpperCase();
-  if(!client){onStatus?.('NO_SUPABASE');return()=>{}}
-  if(!normalized){onStatus?.('CLOSED');return()=>{}}
-
-  let cancelled=false;
-  let channel: RegisterChannel|undefined;
-  onStatus?.('CONNECTING');
-
-  void (async()=>{
-    try{
-      await ensureRealtimeAuth();
-      if(cancelled)return;
-
-      const existing=getChannel(normalized);
-      if(existing){
-        channel=existing;
-        onStatus?.('SUBSCRIBED');
-        return;
-      }
-
-      const topic=channelName(normalized);
-      lastDiagnostics={...lastDiagnostics,topic};
-      const c=client.channel(topic,{config:{
-        private:true,
-        broadcast:{self:false,ack:true}
-      }});
-      channel=c;
-      channels.set(normalized,c);
-      c.on('broadcast',{event:'barcode'},({payload})=>{
-        const m=payload as RegisterMessage;
-        if(m?.type==='barcode'&&m.sourceId!==deviceId())onMessage(m);
-      });
-      c.subscribe((status,error)=>{
-        const detail=formatRealtimeError(error);
-        if(detail) lastDiagnostics={...lastDiagnostics,topic,authError:detail};
-        onStatus?.(status as RegisterStatus,detail);
-        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')channels.delete(normalized);
-      });
-    }catch(error){
-      channels.delete(normalized);
-      onStatus?.('AUTH_ERROR',error instanceof Error?error.message:String(error));
-    }
-  })();
-
-  return()=>{
-    cancelled=true;
-    if(channel&&getChannel(normalized)===channel){
-      channels.delete(normalized);
-      void client.removeChannel(channel);
-    }
-  };
+  if(peer && activeCode===normalized){ messageHandlers.add(onMessage); if(onStatus)statusHandlers.add(onStatus); if(peer.id) setStatus('SUBSCRIBED'); return peer.id; }
+  await disconnectRegister();
+  const P=await loadPeer();
+  activeCode=normalized;messageHandlers.add(onMessage); if(onStatus)statusHandlers.add(onStatus);
+  setRegisterCode(normalized);setDeviceRole('pos');
+  const id=makePeerId(normalized);localStorage.setItem(PEER_KEY,id);
+  setStatus('CONNECTING');
+  peer=new P(id);
+  peer.on('open',()=>setStatus('SUBSCRIBED'));
+  peer.on('error',(e:any)=>{setStatus('CHANNEL_ERROR',e?.type||e?.message||String(e));});
+  peer.on('disconnected',()=>setStatus('CLOSED','Peer disconnected'));
+  peer.on('close',()=>setStatus('CLOSED'));
+  peer.on('connection',(conn:DataConn)=>{
+    closeConnection();activeConnection=conn;
+    conn.on('open',()=>setStatus('SUBSCRIBED'));
+    conn.on('data',(data:any)=>{const m=data as RegisterMessage;if(m?.type==='barcode'&&m.sourceId!==deviceId())messageHandlers.forEach(h=>h(m))});
+    conn.on('close',()=>{if(activeConnection===conn){activeConnection=null;setStatus('CLOSED')}});
+    conn.on('error',(e:any)=>setStatus('CHANNEL_ERROR',e?.message||String(e)));
+  });
+  return id;
 }
 
-export async function sendBarcode(code:string,barcode:string){
-  const client=supabase;
-  const normalized=code.trim().toUpperCase();
-  if(!client||!normalized||!barcode)return false;
-
-  try{
-    await ensureRealtimeAuth();
-    let c=getChannel(normalized);
-    let temporary=false;
-
-    if(!c){
-      c=client.channel(channelName(normalized),{config:{
-        private:true,
-        broadcast:{self:false,ack:true}
-      }});
-      temporary=true;
-      const subscribed=await new Promise<boolean>(resolve=>{
-        let settled=false;
-        const finish=(value:boolean)=>{if(!settled){settled=true;resolve(value)}};
-        c!.subscribe(status=>{
-          if(status==='SUBSCRIBED')finish(true);
-          else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')finish(false);
-        });
-        setTimeout(()=>finish(false),5000);
-      });
-      if(!subscribed){void client.removeChannel(c);return false;}
-    }
-
-    const result=await c.send({
-      type:'broadcast',
-      event:'barcode',
-      payload:{type:'barcode',barcode:barcode.trim(),sourceId:deviceId(),sentAt:Date.now()}
-    });
-    if(temporary)void client.removeChannel(c);
-    return result==='ok';
-  }catch(error){
-    console.error('[YN-POS] Barcode broadcast failed',error);
-    return false;
-  }
+export async function connectScanner(codeOrPeer:string,onStatus?:(s:RegisterStatus,d?:string)=>void){
+  await disconnectRegister();
+  const P=await loadPeer();
+  const value=codeOrPeer.trim();
+  activeCode=value; if(onStatus)statusHandlers.add(onStatus); setStatus('CONNECTING');
+  const scannerPeerId=makePeerId(`scanner-${Math.random().toString(36).slice(2,8)}`);
+  localStorage.setItem(PEER_KEY,scannerPeerId);setDeviceRole('scanner');
+  const normalized=value.toUpperCase().startsWith('YN-')?value.toUpperCase():value;
+  peer=new P(scannerPeerId);
+  peer.on('open',()=>{
+    const conn=peer!.connect(normalized,{reliable:true});
+    activeConnection=conn;
+    conn.on('open',()=>setStatus('SUBSCRIBED'));
+    conn.on('close',()=>setStatus('CLOSED'));
+    conn.on('error',(e:any)=>setStatus('CHANNEL_ERROR',e?.message||String(e)));
+  });
+  peer.on('error',(e:any)=>setStatus('CHANNEL_ERROR',e?.type||e?.message||String(e)));
+  peer.on('close',()=>setStatus('CLOSED'));
+  return scannerPeerId;
 }
 
-export async function disconnectRegister(code?:string){
-  const client=supabase;
-  if(!client)return;
-  const normalized=(code||'').trim().toUpperCase();
-  if(normalized){
-    const c=getChannel(normalized);
-    if(c){channels.delete(normalized);await client.removeChannel(c)}
-    return;
-  }
-  for(const [key,c] of channels){channels.delete(key);await client.removeChannel(c)}
+export function subscribeToRegister(code:string,onMessage:(m:RegisterMessage)=>void,onStatus?:(s:RegisterStatus,d?:string)=>void){
+  void startPOSPairing(code,onMessage,onStatus);
+  return ()=>{messageHandlers.delete(onMessage);if(onStatus)statusHandlers.delete(onStatus)};
 }
+
+export async function sendBarcode(_code:string,barcode:string){
+  if(!activeConnection?.open)return false;
+  activeConnection.send({type:'barcode',barcode:barcode.trim(),sourceId:deviceId(),sentAt:Date.now()});
+  return true;
+}
+
+export async function disconnectRegister(){
+  closeConnection();
+  messageHandlers.clear(); statusHandlers.clear();
+  if(peer){try{peer.destroy()}catch{}peer=null}
+  activeCode='';
+}
+
+export function qrUrl(peerId:string){
+  // The QR contains only the public PeerJS ID, never Supabase credentials or sales data.
+  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(peerId)}`;
+}
+
+export function getRealtimeDiagnostics():RealtimeDiagnostics{return {authenticated:false,setAuth:false,topic:activeCode||undefined,userId:getPeerId()||undefined}};
