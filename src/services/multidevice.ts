@@ -1,4 +1,5 @@
 export type DeviceRole = 'pos' | 'scanner';
+
 export type RegisterMessage = {
   type: 'barcode';
   barcode: string;
@@ -23,20 +24,28 @@ export type RealtimeDiagnostics = {
   authError?: string;
 };
 
-// Multi-device pairing uses PeerJS/WebRTC. Supabase Realtime is intentionally
-// not used for scanner traffic. Supabase remains responsible for POS data.
+// Multi-device pairing uses PeerJS/WebRTC.
+// Supabase Realtime is intentionally not used for scanner traffic.
 const ROLE_KEY = 'yn-device-role';
 const REGISTER_KEY = 'yn-register-code';
 const PEER_KEY = 'yn-peer-id';
 const DEVICE_KEY = 'yn-device-id';
 
-type PeerConstructor = new (id?: string, options?: Record<string, unknown>) => PeerLike;
+type PeerConstructor = new (
+  id?: string,
+  options?: Record<string, unknown>,
+) => PeerLike;
+
 type PeerLike = {
   id: string;
   on: (event: string, callback: (...args: any[]) => void) => void;
-  connect: (id: string, options?: Record<string, unknown>) => DataConnection;
+  connect: (
+    id: string,
+    options?: Record<string, unknown>,
+  ) => DataConnection;
   destroy: () => void;
 };
+
 type DataConnection = {
   open: boolean;
   send: (data: unknown) => void;
@@ -55,25 +64,35 @@ let peerLoad: Promise<PeerConstructor> | null = null;
 let activeConnection: DataConnection | null = null;
 let activeCode = '';
 
-const messageHandlers = new Set<(message: RegisterMessage) => void>();
-const statusHandlers = new Set<(status: RegisterStatus, detail?: string) => void>();
+const messageHandlers = new Set<
+  (message: RegisterMessage) => void
+>();
+
+const statusHandlers = new Set<
+  (status: RegisterStatus, detail?: string) => void
+>();
 
 function notifyConfigChanged() {
   window.dispatchEvent(new Event('yn-device-config-changed'));
 }
 
-function getDeviceId() {
+function getDeviceId(): string {
   let value = localStorage.getItem(DEVICE_KEY);
+
   if (!value) {
     value = crypto.randomUUID();
     localStorage.setItem(DEVICE_KEY, value);
   }
+
   return value;
 }
 
 export const getSavedDeviceRole = (): DeviceRole | null => {
   const value = localStorage.getItem(ROLE_KEY);
-  return value === 'pos' || value === 'scanner' ? value : null;
+
+  return value === 'pos' || value === 'scanner'
+    ? value
+    : null;
 };
 
 export const setDeviceRole = (value: DeviceRole) => {
@@ -81,55 +100,113 @@ export const setDeviceRole = (value: DeviceRole) => {
   notifyConfigChanged();
 };
 
-export const getRegisterCode = () => localStorage.getItem(REGISTER_KEY) || '';
+export const getRegisterCode = (): string => {
+  return localStorage.getItem(REGISTER_KEY) || '';
+};
 
 export const setRegisterCode = (value: string) => {
   localStorage.setItem(REGISTER_KEY, value);
   notifyConfigChanged();
 };
 
-export const makePairCode = () => `YN-${Math.floor(1000 + Math.random() * 9000)}`;
+export const makePairCode = (): string => {
+  return `YN-${Math.floor(1000 + Math.random() * 9000)}`;
+};
 
-export function makePeerId(code: string) {
-  return `ynpos-${code.replace(/[^a-z0-9]/gi, '').toLowerCase()}-${getDeviceId().slice(0, 8)}`;
+export function makePeerId(code: string): string {
+  const normalizedCode = code
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+
+  const deviceId = getDeviceId().slice(0, 8);
+
+  return `ynpos-${normalizedCode}-${deviceId}`;
 }
 
-export function getPeerId() {
+export function getPeerId(): string {
   return localStorage.getItem(PEER_KEY) || '';
 }
 
 async function loadPeer(): Promise<PeerConstructor> {
-  if (window.Peer) return window.Peer;
-  if (peerLoad) return peerLoad;
+  if (window.Peer) {
+    return window.Peer;
+  }
+
+  if (peerLoad) {
+    return peerLoad;
+  }
 
   peerLoad = new Promise<PeerConstructor>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>('script[data-yn-peerjs]');
+    const existing =
+      document.querySelector<HTMLScriptElement>(
+        'script[data-yn-peerjs]',
+      );
+
     if (existing) {
       existing.addEventListener('load', () => {
-        if (window.Peer) resolve(window.Peer);
-        else reject(new Error('WebRTC library loaded but Peer is unavailable.'));
+        if (window.Peer) {
+          resolve(window.Peer);
+        } else {
+          reject(
+            new Error(
+              'WebRTC library loaded but Peer is unavailable.',
+            ),
+          );
+        }
       });
-      existing.addEventListener('error', () => reject(new Error('Could not load WebRTC connection service.')));
+
+      existing.addEventListener('error', () => {
+        reject(
+          new Error(
+            'Could not load WebRTC connection service.',
+          ),
+        );
+      });
+
       return;
     }
 
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+
+    script.src =
+      'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+
     script.async = true;
     script.dataset.ynPeerjs = 'true';
+
     script.onload = () => {
-      if (window.Peer) resolve(window.Peer);
-      else reject(new Error('WebRTC library loaded but Peer is unavailable.'));
+      if (window.Peer) {
+        resolve(window.Peer);
+      } else {
+        reject(
+          new Error(
+            'WebRTC library loaded but Peer is unavailable.',
+          ),
+        );
+      }
     };
-    script.onerror = () => reject(new Error('Could not load WebRTC connection service.'));
+
+    script.onerror = () => {
+      reject(
+        new Error(
+          'Could not load WebRTC connection service.',
+        ),
+      );
+    };
+
     document.head.appendChild(script);
   });
 
   return peerLoad;
 }
 
-function setStatus(status: RegisterStatus, detail?: string) {
-  statusHandlers.forEach((handler) => handler(status, detail));
+function setStatus(
+  status: RegisterStatus,
+  detail?: string,
+) {
+  statusHandlers.forEach((handler) => {
+    handler(status, detail);
+  });
 }
 
 function closeConnection() {
@@ -138,123 +215,237 @@ function closeConnection() {
   } catch {
     // Ignore cleanup errors.
   }
+
   activeConnection = null;
 }
 
-function attachPOSConnection(connection: DataConnection) {
+function attachPOSConnection(
+  connection: DataConnection,
+) {
   closeConnection();
+
   activeConnection = connection;
 
-  connection.on('open', () => setStatus('SUBSCRIBED'));
+  connection.on('open', () => {
+    setStatus('SUBSCRIBED');
+  });
+
   connection.on('data', (data: unknown) => {
     const message = data as Partial<RegisterMessage>;
+
     if (
       message.type === 'barcode' &&
       typeof message.barcode === 'string' &&
       typeof message.sourceId === 'string' &&
       message.sourceId !== getDeviceId()
     ) {
-      messageHandlers.forEach((handler) =>
-        handler({
-          type: 'barcode',
-          barcode: message.barcode,
-          sourceId: message.sourceId,
-          sentAt: typeof message.sentAt === 'number' ? message.sentAt : Date.now(),
-        }),
-      );
+      const normalizedMessage: RegisterMessage = {
+        type: 'barcode',
+        barcode: message.barcode,
+        sourceId: message.sourceId,
+        sentAt:
+          typeof message.sentAt === 'number'
+            ? message.sentAt
+            : Date.now(),
+      };
+
+      messageHandlers.forEach((handler) => {
+        handler(normalizedMessage);
+      });
     }
   });
+
   connection.on('close', () => {
     if (activeConnection === connection) {
       activeConnection = null;
       setStatus('CLOSED');
     }
   });
+
   connection.on('error', (error: unknown) => {
-    setStatus('CHANNEL_ERROR', error instanceof Error ? error.message : String(error));
+    setStatus(
+      'CHANNEL_ERROR',
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   });
 }
 
 export async function startPOSPairing(
   code: string,
   onMessage: (message: RegisterMessage) => void,
-  onStatus?: (status: RegisterStatus, detail?: string) => void,
-) {
+  onStatus?: (
+    status: RegisterStatus,
+    detail?: string,
+  ) => void,
+): Promise<string> {
   const normalized = code.trim().toUpperCase();
-  if (!normalized) throw new Error('A register code is required.');
+
+  if (!normalized) {
+    throw new Error('A register code is required.');
+  }
 
   if (peer && activeCode === normalized) {
     messageHandlers.add(onMessage);
-    if (onStatus) statusHandlers.add(onStatus);
-    if (peer.id) setStatus('SUBSCRIBED');
+
+    if (onStatus) {
+      statusHandlers.add(onStatus);
+    }
+
+    if (peer.id) {
+      setStatus('SUBSCRIBED');
+    }
+
     return peer.id;
   }
 
   await disconnectRegister();
 
   const Peer = await loadPeer();
+
   activeCode = normalized;
+
   messageHandlers.add(onMessage);
-  if (onStatus) statusHandlers.add(onStatus);
+
+  if (onStatus) {
+    statusHandlers.add(onStatus);
+  }
+
   setRegisterCode(normalized);
   setDeviceRole('pos');
 
-  const peerId = makePeerId(normalized);
+  const peerId: string = makePeerId(normalized);
+
   localStorage.setItem(PEER_KEY, peerId);
+
   setStatus('CONNECTING');
 
-  const posPeer = new Peer(peerId);
+  const posPeer: PeerLike = new Peer(peerId);
+
   peer = posPeer;
 
-  posPeer.on('open', () => setStatus('SUBSCRIBED'));
-  posPeer.on('error', (error: unknown) => {
-    setStatus('CHANNEL_ERROR', error instanceof Error ? error.message : String(error));
+  posPeer.on('open', () => {
+    setStatus('SUBSCRIBED');
   });
-  posPeer.on('disconnected', () => setStatus('CLOSED', 'WebRTC signaling connection disconnected.'));
-  posPeer.on('close', () => setStatus('CLOSED'));
-  posPeer.on('connection', (connection: DataConnection) => attachPOSConnection(connection));
+
+  posPeer.on('error', (error: unknown) => {
+    setStatus(
+      'CHANNEL_ERROR',
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
+  });
+
+  posPeer.on('disconnected', () => {
+    setStatus(
+      'CLOSED',
+      'WebRTC signaling connection disconnected.',
+    );
+  });
+
+  posPeer.on('close', () => {
+    setStatus('CLOSED');
+  });
+
+  posPeer.on(
+    'connection',
+    (connection: DataConnection) => {
+      attachPOSConnection(connection);
+    },
+  );
 
   return peerId;
 }
 
 export async function connectScanner(
   peerId: string,
-  onStatus?: (status: RegisterStatus, detail?: string) => void,
-) {
+  onStatus?: (
+    status: RegisterStatus,
+    detail?: string,
+  ) => void,
+): Promise<string> {
   await disconnectRegister();
 
   const Peer = await loadPeer();
+
   const target = peerId.trim();
-  if (!target.startsWith('ynpos-')) throw new Error('Invalid POS connection QR code.');
+
+  if (!target.startsWith('ynpos-')) {
+    throw new Error(
+      'Invalid POS connection QR code.',
+    );
+  }
 
   activeCode = target;
-  if (onStatus) statusHandlers.add(onStatus);
+
+  if (onStatus) {
+    statusHandlers.add(onStatus);
+  }
+
   setStatus('CONNECTING');
 
-  const scannerPeerId = makePeerId(`scanner-${Math.random().toString(36).slice(2, 8)}`);
+  const randomPart = Math.random()
+    .toString(36)
+    .slice(2, 8);
+
+  const scannerPeerId: string = makePeerId(
+    `scanner-${randomPart}`,
+  );
+
   localStorage.setItem(PEER_KEY, scannerPeerId);
+
   setDeviceRole('scanner');
 
-  const scannerPeer = new Peer(scannerPeerId);
+  const scannerPeer: PeerLike = new Peer(
+    scannerPeerId,
+  );
+
   peer = scannerPeer;
 
   scannerPeer.on('open', () => {
-    const connection = scannerPeer.connect(target, { reliable: true });
+    const connection: DataConnection =
+      scannerPeer.connect(target, {
+        reliable: true,
+      });
+
     activeConnection = connection;
-    connection.on('open', () => setStatus('SUBSCRIBED'));
+
+    connection.on('open', () => {
+      setStatus('SUBSCRIBED');
+    });
+
     connection.on('close', () => {
-      if (activeConnection === connection) activeConnection = null;
+      if (activeConnection === connection) {
+        activeConnection = null;
+      }
+
       setStatus('CLOSED');
     });
+
     connection.on('error', (error: unknown) => {
-      setStatus('CHANNEL_ERROR', error instanceof Error ? error.message : String(error));
+      setStatus(
+        'CHANNEL_ERROR',
+        error instanceof Error
+          ? error.message
+          : String(error),
+      );
     });
   });
 
   scannerPeer.on('error', (error: unknown) => {
-    setStatus('CHANNEL_ERROR', error instanceof Error ? error.message : String(error));
+    setStatus(
+      'CHANNEL_ERROR',
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   });
-  scannerPeer.on('close', () => setStatus('CLOSED'));
+
+  scannerPeer.on('close', () => {
+    setStatus('CLOSED');
+  });
 
   return scannerPeerId;
 }
@@ -262,32 +453,60 @@ export async function connectScanner(
 export function subscribeToRegister(
   code: string,
   onMessage: (message: RegisterMessage) => void,
-  onStatus?: (status: RegisterStatus, detail?: string) => void,
+  onStatus?: (
+    status: RegisterStatus,
+    detail?: string,
+  ) => void,
 ) {
-  void startPOSPairing(code, onMessage, onStatus).catch((error: unknown) => {
-    setStatus('CHANNEL_ERROR', error instanceof Error ? error.message : String(error));
+  void startPOSPairing(
+    code,
+    onMessage,
+    onStatus,
+  ).catch((error: unknown) => {
+    setStatus(
+      'CHANNEL_ERROR',
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
   });
 
   return () => {
     messageHandlers.delete(onMessage);
-    if (onStatus) statusHandlers.delete(onStatus);
+
+    if (onStatus) {
+      statusHandlers.delete(onStatus);
+    }
   };
 }
 
-export async function sendBarcode(_code: string, barcode: string) {
-  if (!activeConnection?.open) return false;
+export async function sendBarcode(
+  _code: string,
+  barcode: string,
+): Promise<boolean> {
+  if (!activeConnection?.open) {
+    return false;
+  }
+
+  const cleanBarcode = barcode.trim();
+
+  if (!cleanBarcode) {
+    return false;
+  }
 
   activeConnection.send({
     type: 'barcode',
-    barcode: barcode.trim(),
+    barcode: cleanBarcode,
     sourceId: getDeviceId(),
     sentAt: Date.now(),
   });
+
   return true;
 }
 
-export async function disconnectRegister() {
+export async function disconnectRegister(): Promise<void> {
   closeConnection();
+
   messageHandlers.clear();
   statusHandlers.clear();
 
@@ -297,22 +516,39 @@ export async function disconnectRegister() {
     } catch {
       // Ignore cleanup errors.
     }
+
     peer = null;
   }
 
   activeCode = '';
 }
 
-export function qrUrl(peerId: string) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(peerId)}`;
+export function qrUrl(peerId: string): string {
+  const encodedPeerId = encodeURIComponent(peerId);
+
+  return (
+    'https://api.qrserver.com/v1/create-qr-code/' +
+    `?size=320x320&margin=12&data=${encodedPeerId}`
+  );
 }
 
-// Kept for compatibility with the existing Devices page. No Realtime auth is used.
+// Compatibility function for the existing Devices page.
+// No Supabase Realtime authentication is used.
 export function getRealtimeDiagnostics(): RealtimeDiagnostics {
-  return {
+  const savedPeerId = getPeerId();
+
+  const diagnostics: RealtimeDiagnostics = {
     authenticated: false,
     setAuth: false,
-    topic: activeCode || undefined,
-    userId: getPeerId() || undefined,
   };
+
+  if (activeCode) {
+    diagnostics.topic = activeCode;
+  }
+
+  if (savedPeerId) {
+    diagnostics.userId = savedPeerId;
+  }
+
+  return diagnostics;
 }
